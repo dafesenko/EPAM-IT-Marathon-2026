@@ -555,12 +555,14 @@ Response: `200 OK`
 ```
 
 ### `GET` /reservations/{reservationId}/guest-session-id
+Owner only. Returns the id of the caller's owner guest session in the reservation's group reservation.
 Response: `200 OK`
 ```json
 {
   "guestSessionId": "string"
 }
 ```
+Errors: 400 missing `reservationId`; 401 missing token; 403 caller is not the reservation owner; 404 reservation, group reservation or owner guest session not found.
 
 
 ### `DELETE` /reservations
@@ -1180,12 +1182,23 @@ Response: 200 OK
 ```
 
 ### `POST` /group-reservations/{groupReservationId}/submit
-Response: 200 OK
+Owner only. Merges the dishes of all submitted guest sessions in the group reservation by `dishId`, adds them to the reservation's pre-order, sets the order to `SubmittedByCustomer` and the group reservation to `Submitted`, and saves both in one transaction.
+Request body:
 ```json
 {
-  "message": "Group reservation pre-order submitted successfully."
+  "reservationId": "string"
 }
 ```
+Response: 200 OK
+```json
+[
+  {
+    "dishId": "string",
+    "quantity": 3
+  }
+]
+```
+Errors: 400 missing `groupReservationId`, or missing or invalid body (`reservationId` is required); 400 `reservationId` does not match the group reservation; 400 group reservation already submitted or closed; 400 no submitted guest sessions; 400 submitted guest sessions contain no dishes; 400 no active pre-order for the reservation; 401 missing token; 403 caller is not the reservation owner; 404 group reservation or reservation not found.
 
 ### `GET` /guest/groups/{groupReservationId}/sessions
 Owner only. Returns all participants of the group reservation (including the owner session, marked as `Owner`) with their dishes and totals.
@@ -1225,16 +1238,16 @@ Response: 200 OK
 Errors: 400 missing `groupReservationId`; 401 missing user identity; 403 caller is not the reservation owner; 404 group reservation or reservation not found.
 
 ### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}
-Owner only. Removes a guest session from the group reservation and returns the updated participants snapshot (same shape as `GET /guest/groups/{groupReservationId}/sessions`).
+Owner only. Removes a guest session from the group reservation and returns the updated participants snapshot. The structure matches `GET /guest/groups/{groupReservationId}/sessions`, but the keys of this response are PascalCase (`Participants`, `Id`, `Type`, `Name`, `Items`, `Total`, `IsSubmitted`), not camelCase; the nested `dish` and `quantity` keys stay camelCase.
 Response: 200 OK
 ```json
 {
-  "participants": [
+  "Participants": [
     {
-      "id": "string",
-      "type": "Owner",
-      "name": "string",
-      "items": [
+      "Id": "string",
+      "Type": "Owner",
+      "Name": "string",
+      "Items": [
         {
           "dish": {
             "id": "string",
@@ -1244,19 +1257,19 @@ Response: 200 OK
           "quantity": 2
         }
       ],
-      "total": 360,
-      "isSubmitted": true
+      "Total": 360,
+      "IsSubmitted": true
     },
     {
-      "id": "string",
-      "type": "Guest",
-      "name": "string",
-      "items": [],
-      "total": 0,
-      "isSubmitted": false
+      "Id": "string",
+      "Type": "Guest",
+      "Name": "string",
+      "Items": [],
+      "Total": 0,
+      "IsSubmitted": false
     }
   ],
-  "total": 360
+  "Total": 360
 }
 ```
 Errors: 400 missing path value or guest session not in this group; 401 missing token; 403 caller is not the reservation owner; 404 group reservation, reservation or guest session not found.

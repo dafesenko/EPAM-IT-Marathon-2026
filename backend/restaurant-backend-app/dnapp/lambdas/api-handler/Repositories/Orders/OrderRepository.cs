@@ -11,6 +11,7 @@ namespace APIHandler.Repositories.Orders;
 public class OrderRepository : IOrderRepository
 {
     private readonly string OrdersTableName = ResourceNames.OrdersTableName;
+    private readonly string GroupReservationsTableName = ResourceNames.GroupReservationsTableName;
     private readonly string CustomerIdGlobalIndex = ResourceNames.OrdersTableCustomerIdGlobalIndex;
     private readonly string ReservationIdGlobalIndex = ResourceNames.OrdersTableReservationIdGlobalIndex;
 
@@ -55,5 +56,16 @@ public class OrderRepository : IOrderRepository
     public async Task SaveOrderAsync(Order order)
     {
         await _dynamoDbContext.SaveAsync(order, DynamoConfig.SaveConfig(OrdersTableName));
+    }
+
+    public async Task SaveOrderAndGroupReservationAsync(Order order, GroupReservation groupReservation)
+    {
+        var orderWrite = _dynamoDbContext.CreateTransactWrite<Order>(new DynamoDBOperationConfig { OverrideTableName = OrdersTableName });
+        orderWrite.AddSaveItem(order);
+
+        var groupReservationWrite = _dynamoDbContext.CreateTransactWrite<GroupReservation>(new DynamoDBOperationConfig { OverrideTableName = GroupReservationsTableName });
+        groupReservationWrite.AddSaveItem(groupReservation);
+
+        await _dynamoDbContext.CreateMultiTableTransactWrite(new ITransactWrite[] { orderWrite, groupReservationWrite }).ExecuteAsync();
     }
 }

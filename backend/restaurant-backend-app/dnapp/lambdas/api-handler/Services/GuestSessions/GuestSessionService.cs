@@ -384,6 +384,28 @@ public class GuestSessionService(
         return new GetGuestSessionResponse(name, items, total, session.IsSubmitted);
     }
 
+    // Returns the id of the reservation owner's own guest session in the group.
+    public async Task<string> GetOwnerGuestSessionIdAsync(string userId, string reservationId)
+    {
+        var group = await groupReservationRepository.GetByReservationIdAsync(reservationId)
+            ?? throw new GroupReservationNotFoundException();
+
+        var reservation = await reservationRepository.GetReservationByIdAsync(reservationId)
+            ?? throw new ReservationNotFoundException("Reservation not found.");
+
+        if (reservation.CustomerId != userId)
+        {
+            throw new ActionForbiddenException("Only the reservation owner can perform this action.");
+        }
+
+        var sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(group.GroupReservationId);
+
+        GuestSession? ownerSession = sessions.FirstOrDefault(s => s.IsOwnerSession && s.OwnerUserId == userId);
+
+        return ownerSession?.Id
+            ?? throw new GuestSessionNotFoundException("Owner guest session not found.");
+    }
+
 }
 
 

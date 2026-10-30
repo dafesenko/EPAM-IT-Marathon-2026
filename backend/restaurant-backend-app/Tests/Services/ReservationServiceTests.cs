@@ -17,6 +17,7 @@ using APIHandler.Services.Waiters;
 using APIHandler.Models.WaiterList;
 using APIHandler.Exceptions;
 using APIHandler.Services.GroupReservations;
+using APIHandler.Services.GuestSessions;
 
 namespace APIHandler.Tests.Services;
 
@@ -30,11 +31,21 @@ public class ReservationServiceTests
     private readonly Mock<IOrderService> _mockOrderService = new();
     private readonly Mock<ILambdaLogger> _mockLogger = new();
     private readonly Mock<IGroupReservationService> _mockGroupReservationService = new();
+    private readonly Mock<IGuestSessionService> _mockGuestSessionService = new();
 
     private readonly ReservationService _reservationService;
 
     public ReservationServiceTests()
     {
+        _mockGroupReservationService
+            .Setup(r => r.CreateGroupReservationAsync(It.IsAny<string>()))
+            .ReturnsAsync((string reservationId) => new GroupReservation
+            {
+                GroupReservationId = Guid.NewGuid().ToString(),
+                ReservationId = reservationId,
+                ReservationToken = Guid.NewGuid().ToString("N"),
+            });
+
         _reservationService = new ReservationService(
             _mockReservationRepository.Object,
             _mockLocationRepository.Object,
@@ -42,7 +53,8 @@ public class ReservationServiceTests
             _mockWaiterService.Object,
             _mockLocationService.Object,
             _mockOrderService.Object,
-            _mockGroupReservationService.Object
+            _mockGroupReservationService.Object,
+            _mockGuestSessionService.Object
         );
     }
 
@@ -232,6 +244,92 @@ public class ReservationServiceTests
         var result = await _reservationService.CreateReservationAsync(request, callerId, isWaiter: false, _mockLogger.Object);
 
         _mockGroupReservationService.Verify(r => r.CreateGroupReservationAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    // Two or more guests: the owner guest session is created for the customer and the new group reservation.
+    [Theory, AutoData]
+    public async Task CreateReservationAsync_GuestCountTwoOrMore_CreatesOwnerGuestSession(
+        CreateReservationRequest request,
+        string callerId,
+        Location location,
+        Table table,
+        WaiterListItem waiter)
+    {
+        table.Id = request.TableId;
+        table.LocationId = location.Id;
+        waiter.LocationId = location.Id;
+        request.StartTime = DateTime.UtcNow.AddHours(1);
+        request.EndTime = request.StartTime.AddHours(1);
+        request.GuestCount = 2;
+        table.Capacity = 4;
+
+        _mockLocationService
+            .Setup(r => r.GetLocationByTableIdAsync(request.TableId))
+            .ReturnsAsync(location);
+
+        _mockWaiterService
+            .Setup(r => r.GetLeastBusyWaiterAsync(location.Id))
+            .ReturnsAsync(waiter);
+
+        _mockWaiterService
+            .Setup(r => r.FindWaiterByIdAsync(waiter.UserId))
+            .ReturnsAsync(waiter);
+
+        _mockReservationRepository
+            .Setup(r => r.GetReservationsByTableIdAsync(request.TableId))
+            .ReturnsAsync([]);
+
+        _mockLocationRepository
+            .Setup(r => r.GetTableByIdAsync(request.TableId))
+            .ReturnsAsync(table);
+
+        // Act
+        await _reservationService.CreateReservationAsync(request, callerId, isWaiter: false, _mockLogger.Object);
+
+        _mockGuestSessionService.Verify(r => r.CreateGroupOwnerSessionAsync(callerId, It.IsAny<string>()), Times.Once());
+    }
+
+    // One guest: no group reservation is created, so no owner guest session is created either.
+    [Theory, AutoData]
+    public async Task CreateReservationAsync_GuestCountOne_DoesNotCreateOwnerGuestSession(
+        CreateReservationRequest request,
+        string callerId,
+        Location location,
+        Table table,
+        WaiterListItem waiter)
+    {
+        table.Id = request.TableId;
+        table.LocationId = location.Id;
+        waiter.LocationId = location.Id;
+        request.StartTime = DateTime.UtcNow.AddHours(1);
+        request.EndTime = request.StartTime.AddHours(1);
+        request.GuestCount = 1;
+        table.Capacity = 4;
+
+        _mockLocationService
+            .Setup(r => r.GetLocationByTableIdAsync(request.TableId))
+            .ReturnsAsync(location);
+
+        _mockWaiterService
+            .Setup(r => r.GetLeastBusyWaiterAsync(location.Id))
+            .ReturnsAsync(waiter);
+
+        _mockWaiterService
+            .Setup(r => r.FindWaiterByIdAsync(waiter.UserId))
+            .ReturnsAsync(waiter);
+
+        _mockReservationRepository
+            .Setup(r => r.GetReservationsByTableIdAsync(request.TableId))
+            .ReturnsAsync([]);
+
+        _mockLocationRepository
+            .Setup(r => r.GetTableByIdAsync(request.TableId))
+            .ReturnsAsync(table);
+
+        // Act
+        await _reservationService.CreateReservationAsync(request, callerId, isWaiter: false, _mockLogger.Object);
+
+        _mockGuestSessionService.Verify(r => r.CreateGroupOwnerSessionAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Theory, AutoData]
