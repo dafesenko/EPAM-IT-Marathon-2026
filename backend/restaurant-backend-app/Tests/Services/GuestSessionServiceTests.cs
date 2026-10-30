@@ -1,4 +1,5 @@
 using Amazon.CognitoIdentityProvider.Model;
+using APIHandler.Constants;
 using APIHandler.Constants.Dishes;
 using APIHandler.Constants.Orders;
 using APIHandler.Entities;
@@ -368,10 +369,10 @@ public class GuestSessionServiceTests
             _guestSessionService.RemoveDishAsync(guestSessionId, dishId, 2));
     }
     [Theory]
-    [InlineAutoData(1, 0)]
     [InlineAutoData(1, 1)]
-    [InlineAutoData(2, 1)]
     [InlineAutoData(2, 2)]
+    [InlineAutoData(3, 3)]
+    [InlineAutoData(3, 4)]
     public async Task CreateGuestSessionAsync_WhenCapacityReached_ThrowsGuestLimitExceededException(
         int reservationCapacity,
         int guestCount,
@@ -400,6 +401,100 @@ public class GuestSessionServiceTests
         var exception = await Assert.ThrowsAsync<GuestLimitExceededException>(() => _guestSessionService.CreateGuestSessionAsync(request));
 
         _mockGuestSessionRepository.Verify(r => r.SaveAsync(It.IsAny<GuestSession>()), Times.Never);
+    }
+
+    // Owner session + 2 guests = 3 sessions, capacity 4: one more guest is allowed.
+    [Theory]
+    [AutoData]
+    public async Task CreateGuestSessionAsync_OwnerAndGuestsBelowCapacity_AllowsNewGuest(
+        CreateGuestSessionRequest request,
+        GroupReservation groupReservation,
+        Reservation parentReservation)
+    {
+        groupReservation.GroupReservationId = request.GroupReservationId;
+        groupReservation.Status = GroupReservationStatus.Open;
+        groupReservation.ReservationId = parentReservation.Id;
+
+        parentReservation.Status = ReservationStatus.Reserved;
+        parentReservation.GuestCount = 4;
+
+        _mockGroupReservationRepository
+            .Setup(r => r.GetGroupReservationByIdAsync(groupReservation.GroupReservationId))
+            .ReturnsAsync(groupReservation);
+
+        _mockReservationRepository
+            .Setup(r => r.GetReservationByIdAsync(parentReservation.Id))
+            .ReturnsAsync(parentReservation);
+
+        _mockGuestSessionRepository
+            .Setup(r => r.CountByGroupReservationId(groupReservation.GroupReservationId))
+            .ReturnsAsync(3);
+
+        var response = await _guestSessionService.CreateGuestSessionAsync(request);
+
+        Assert.NotEmpty(response.SessionId);
+        _mockGuestSessionRepository.Verify(r => r.SaveAsync(It.IsAny<GuestSession>()), Times.Once);
+    }
+
+    // Owner session + 3 guests = 4 sessions, capacity 4: the group is full and a new guest is rejected.
+    [Theory]
+    [AutoData]
+    public async Task CreateGuestSessionAsync_GroupAtCapacity_ThrowsGuestLimitExceeded(
+        CreateGuestSessionRequest request,
+        GroupReservation groupReservation,
+        Reservation parentReservation)
+    {
+        groupReservation.GroupReservationId = request.GroupReservationId;
+        groupReservation.Status = GroupReservationStatus.Open;
+        groupReservation.ReservationId = parentReservation.Id;
+
+        parentReservation.Status = ReservationStatus.Reserved;
+        parentReservation.GuestCount = 4;
+
+        _mockGroupReservationRepository
+            .Setup(r => r.GetGroupReservationByIdAsync(groupReservation.GroupReservationId))
+            .ReturnsAsync(groupReservation);
+
+        _mockReservationRepository
+            .Setup(r => r.GetReservationByIdAsync(parentReservation.Id))
+            .ReturnsAsync(parentReservation);
+
+        _mockGuestSessionRepository
+            .Setup(r => r.CountByGroupReservationId(groupReservation.GroupReservationId))
+            .ReturnsAsync(4);
+
+        await Assert.ThrowsAsync<GuestLimitExceededException>(() => _guestSessionService.CreateGuestSessionAsync(request));
+
+        _mockGuestSessionRepository.Verify(r => r.SaveAsync(It.IsAny<GuestSession>()), Times.Never);
+    }
+
+    // Three sessions (owner + 2 guests) must be reported as three participants, not four.
+    [Theory]
+    [AutoData]
+    public async Task GetGroupReservationStatusAsync_ThreeSessions_ReportsThreeParticipants(
+        GroupReservation groupReservation,
+        Reservation reservation)
+    {
+        groupReservation.Status = GroupReservationStatus.Open;
+        groupReservation.ReservationId = reservation.Id;
+        reservation.GuestCount = 4;
+
+        _mockGroupReservationRepository
+            .Setup(r => r.GetGroupReservationByIdAsync(groupReservation.GroupReservationId))
+            .ReturnsAsync(groupReservation);
+
+        _mockReservationRepository
+            .Setup(r => r.GetReservationByIdAsync(reservation.Id))
+            .ReturnsAsync(reservation);
+
+        _mockGuestSessionRepository
+            .Setup(r => r.GetAllByGroupReservationIdAsync(groupReservation.GroupReservationId))
+            .ReturnsAsync([NewGuestSession(), NewGuestSession(), NewGuestSession()]);
+
+        var result = await _guestSessionService.GetGroupReservationStatusAsync(groupReservation.GroupReservationId);
+
+        Assert.Equal(3, result.CurrentParticipants);
+        Assert.Equal(4, result.MaxCapacity);
     }
 
     [Theory]
@@ -681,6 +776,14 @@ public class GuestSessionServiceTests
         Assert.Equal(dishes.Count(), result.Items.Count());
         Assert.Equal(expectedTotal, result.Total);
     }
+
+    private static GuestSession NewGuestSession() => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        GuestName = "Guest",
+        GroupReservationId = "group",
+        Dishes = [],
+    };
 
     public static TheoryData<IEnumerable<string>, IEnumerable<Dish>, List<OrderItem>, decimal> PepareDishesForGuestSession()
     {

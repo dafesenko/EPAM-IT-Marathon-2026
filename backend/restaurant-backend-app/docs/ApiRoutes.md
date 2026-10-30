@@ -1272,4 +1272,4 @@ Response: 200 OK
   "Total": 360
 }
 ```
-Errors: 400 missing path value or guest session not in this group; 401 missing token; 403 caller is not the reservation owner; 404 group reservation, reservation or guest session not found.
+Errors: 400 missing path value, guest session not in this group, or the guest session is the owner session; 401 missing token; 403 caller is not the reservation owner; 404 group reservation, reservation or guest session not found.

@@ -57,8 +57,9 @@ public class GuestSessionService(
 
         int joinedGuestsCount = await countTask;
 
-        if (joinedGuestsCount + 1 >= reservation.GuestCount)
-            throw new GuestLimitExceededException($"Guest limit exceeded. Maximum capacity is {reservation.GuestCount}, but {joinedGuestsCount} guests have already joined.");
+        // The count already includes the owner session, so a new guest fits only while the total stays within capacity.
+        if (joinedGuestsCount + 1 > reservation.GuestCount)
+            throw new GuestLimitExceededException($"Guest limit exceeded. Maximum capacity is {reservation.GuestCount}, but {joinedGuestsCount} participants have already joined.");
 
         byte[] tokenBytes = RandomNumberGenerator.GetBytes(32);
 
@@ -184,11 +185,21 @@ public class GuestSessionService(
             throw new ValidationException("Guest session does not belong to this group reservation.");
         }
 
+        // The owner must stay in their own group.
+        if (session.IsOwnerSession)
+        {
+            throw new ValidationException("The owner session cannot be removed from the group.");
+        }
+
         await guestSessionRepository.DeleteAsync(session);
 
         var sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId);
 
-        return await BuildSessionsSnapshotAsync(sessions);
+        // GSIs are eventually consistent, so the session we just deleted can still be in this list.
+        // Remove it here so the owner does not see a guest that was already deleted.
+        var remainingSessions = sessions.Where(s => s.Id != guestSessionId).ToList();
+
+        return await BuildSessionsSnapshotAsync(remainingSessions);
     }
 
     public async Task<GetAllSessionsResponse> GetGroupSessionsAsync(string userId, string groupReservationId)
@@ -266,9 +277,9 @@ public class GuestSessionService(
     {
         var sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId);
 
-        // Owner is always 1 active participant. 
-        // If sessions is null/empty, it safely evaluates to 0 joined guests + 1 owner = 1.
-        return (sessions?.Count ?? 0) + 1;
+        // Each session is one participant. The owner has a session too (IsOwnerSession = true), so no extra +1 is added.
+        // Groups created before the owner session existed have no owner session, so they are counted one short.
+        return sessions?.Count ?? 0;
     }
 
     private async Task ValidateGroupReservationId(string groupReservationId) => await GetGroupReservationAndValidateAsync(groupReservationId);

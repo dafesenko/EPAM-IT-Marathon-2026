@@ -167,6 +167,46 @@ public class GetGroupSessionsTests
         Assert.Equal(20m, result.Total);
     }
 
+    // Checks that the owner session cannot be deleted and nothing is removed from the group.
+    [Fact]
+    public async Task DeleteGuestSessionAsync_OwnerSession_ThrowsValidationExceptionAndDeletesNothing()
+    {
+        SetupGroupAndReservation(customerId: OwnerUserId);
+
+        _guestSessionRepository
+            .Setup(r => r.GetByGuestSessionId("owner-session"))
+            .ReturnsAsync(CreateSession("owner-session", "Owner", isOwner: true));
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            _service.DeleteGuestSessionAsync(OwnerUserId, GroupId, "owner-session"));
+
+        _guestSessionRepository.Verify(r => r.DeleteAsync(It.IsAny<GuestSession>()), Times.Never);
+    }
+
+    // Checks that a deleted session still returned by the index read after delete is left out of the snapshot.
+    [Fact]
+    public async Task DeleteGuestSessionAsync_StaleIndexStillListsDeletedSession_SnapshotExcludesIt()
+    {
+        SetupGroupAndReservation(customerId: OwnerUserId);
+
+        GuestSession deletedSession = CreateSession("guest-session-1", "Anna", isOwner: false, ("dish-a", 1));
+        _guestSessionRepository
+            .Setup(r => r.GetByGuestSessionId("guest-session-1"))
+            .ReturnsAsync(deletedSession);
+
+        // The index still returns the deleted session (eventual consistency).
+        SetupSessions(
+            CreateSession("owner-session", "Owner", isOwner: true, ("dish-a", 2)),
+            deletedSession);
+        SetupDishes(CreateDish("dish-a", 10m));
+
+        GetAllSessionsResponse result = await _service.DeleteGuestSessionAsync(OwnerUserId, GroupId, "guest-session-1");
+
+        Participant owner = Assert.Single(result.Participants);
+        Assert.Equal("owner-session", owner.Id);
+        Assert.Equal(20m, result.Total); // only the owner's 2 * 10
+    }
+
     // Checks that a user who is not the reservation owner cannot delete a guest session.
     [Fact]
     public async Task DeleteGuestSessionAsync_NotReservationOwner_ThrowsActionForbiddenException()

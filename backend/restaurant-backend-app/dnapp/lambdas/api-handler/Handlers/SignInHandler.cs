@@ -74,6 +74,12 @@ public class SignInHandler : IApiRequestHandler
             context.Logger.LogLine("Invalid email or password");
             return null;
         }
+        catch (UserNotFoundException)
+        {
+            // Same answer as a wrong password, so the API does not reveal which emails are registered.
+            context.Logger.LogLine("Invalid email or password");
+            return null;
+        }
     }
 
     private static bool TryDeserializeRequest(APIGatewayProxyRequest request, out SignInRequest? signInRequest)
