@@ -1,0 +1,111 @@
+@use 'app/shared/styles/abstracts/colors' as color;
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  background: color.$neutral-0;
+  box-shadow: 0 1px 4px color.$shadow;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 24px;
+  color: color.$neutral-900;
+}
+
+.chip {
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 20px;
+
+  &.submitted {
+    background: color.$green-100;
+    color: color.$green-800;
+  }
+
+  &.pending {
+    background: color.$orange-100;
+    color: color.$orange-600;
+  }
+}
+
+.items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 40px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid color.$neutral-100;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+
+  &.initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color.$green-100;
+    color: color.$green-800;
+  }
+}
+
+.name,
+.qty,
+.price,
+.empty,
+.subtotal {
+  margin: 0;
+  font-size: 14px;
+}
+
+.qty {
+  color: color.$neutral-600;
+}
+
+.price {
+  font-weight: 600;
+}
+
+.empty {
+  color: color.$neutral-400;
+}
+
+.subtotal {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.remove {
+  padding: 0;
+  border: none;
+  background: none;
+  color: color.$neutral-900;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}

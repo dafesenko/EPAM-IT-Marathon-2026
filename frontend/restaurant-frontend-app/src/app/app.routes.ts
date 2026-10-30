@@ -102,6 +102,15 @@ export const routes: Routes = [
             (m) => m.GuestPreOrderPageComponent
           ),
       },
+      {
+        canActivate: [AuthGuard],
+        data: { authorized: true },
+        path: 'reservations/:reservationId/group-order',
+        loadComponent: () =>
+          import('./pages/group-order-page/group-order-page.component').then(
+            (m) => m.GroupOrderPageComponent
+          ),
+      },
     ],
   },
   { path: '**', redirectTo: '', pathMatch: 'full' },
