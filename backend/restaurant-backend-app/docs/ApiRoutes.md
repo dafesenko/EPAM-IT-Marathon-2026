@@ -1188,22 +1188,75 @@ Response: 200 OK
 ```
 
 ### `GET` /guest/groups/{groupReservationId}/sessions
-Response: 200 OK
-```json
-[
-  {
-    "id": "string",
-    "groupReservationId": "string",
-    "guestName": "string",
-    "status": "string"
-  }
-]
-```
-
-### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}
+Owner only. Returns all participants of the group reservation (including the owner session, marked as `Owner`) with their dishes and totals.
 Response: 200 OK
 ```json
 {
-  "message": "Guest session removed from group successfully."
+  "participants": [
+    {
+      "id": "string",
+      "type": "Owner",
+      "name": "string",
+      "items": [
+        {
+          "dish": {
+            "id": "string",
+            "name": "string",
+            "price": 180
+          },
+          "quantity": 2
+        }
+      ],
+      "total": 360,
+      "isSubmitted": true
+    },
+    {
+      "id": "string",
+      "type": "Guest",
+      "name": "string",
+      "items": [],
+      "total": 0,
+      "isSubmitted": false
+    }
+  ],
+  "total": 360
 }
 ```
+Errors: 400 missing `groupReservationId`; 401 missing user identity; 403 caller is not the reservation owner; 404 group reservation or reservation not found.
+
+### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}
+Owner only. Removes a guest session from the group reservation and returns the updated participants snapshot (same shape as `GET /guest/groups/{groupReservationId}/sessions`).
+Response: 200 OK
+```json
+{
+  "participants": [
+    {
+      "id": "string",
+      "type": "Owner",
+      "name": "string",
+      "items": [
+        {
+          "dish": {
+            "id": "string",
+            "name": "string",
+            "price": 180
+          },
+          "quantity": 2
+        }
+      ],
+      "total": 360,
+      "isSubmitted": true
+    },
+    {
+      "id": "string",
+      "type": "Guest",
+      "name": "string",
+      "items": [],
+      "total": 0,
+      "isSubmitted": false
+    }
+  ],
+  "total": 360
+}
+```
+Errors: 400 missing path value or guest session not in this group; 401 missing token; 403 caller is not the reservation owner; 404 group reservation, reservation or guest session not found.

@@ -188,32 +188,18 @@ public class GuestSessionService(
 
         var sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId);
 
-        var dishIds = sessions
-            .SelectMany(s => s.Dishes)
-            .Select(s => s.DishId)
-            .Distinct()
-            .ToArray();
-
-        var allDishes = await dishRepository.GetDishesByIdsAsync(dishIds);
-        var dishesById = allDishes.ToDictionary(d => d.Id);
-
-        var participants = new List<Participant>();
-
-        foreach (var guestSession in sessions)
-        {
-            var items = guestSession.Dishes.Select(d => new OrderItemResponse
-            {
-                Dish = DishMapper.ToDishResponse(dishesById[d.DishId]),
-                Quantity = d.Quantity
-            }).ToArray();
-
-            decimal total = items.Sum(i => i.Quantity * i.Dish.Price);
-            var participant = new Participant(guestSession.Id, ParticipantType.Guest, guestSession.GuestName, items, total, guestSession.IsSubmitted);
-            participants.Add(participant);
-        }
-
-        return new GetAllSessionsResponse(participants, participants.Sum(p => p.Total));
+        return await BuildSessionsSnapshotAsync(sessions);
     }
+
+    public async Task<GetAllSessionsResponse> GetGroupSessionsAsync(string userId, string groupReservationId)
+    {
+        await ValidateReservationOwnerAsync(groupReservationId, userId);
+
+        var sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId);
+
+        return await BuildSessionsSnapshotAsync(sessions);
+    }
+
     public async Task SubmitCartAsync(string guestSessionId)
     {
         GuestSession guestSession = await GetGuestSessionAsync(guestSessionId);
@@ -232,6 +218,48 @@ public class GuestSessionService(
         GroupReservation? group = await groupReservationRepository.GetGroupReservationByIdAsync(groupReservationId);
         ValidateGroupReservation(group);
         return group;
+    }
+
+    private async Task<GetAllSessionsResponse> BuildSessionsSnapshotAsync(IEnumerable<GuestSession> sessions)
+    {
+        var sessionList = sessions.ToList();
+
+        var dishIds = sessionList
+            .SelectMany(s => s.Dishes)
+            .Select(s => s.DishId)
+            .Distinct()
+            .ToArray();
+
+        var allDishes = await dishRepository.GetDishesByIdsAsync(dishIds);
+        var dishesById = allDishes.ToDictionary(d => d.Id);
+
+        var participants = new List<Participant>();
+
+        foreach (var guestSession in sessionList)
+        {
+            var items = new List<OrderItemResponse>();
+
+            foreach (var orderItem in guestSession.Dishes)
+            {
+                // A dish can be removed from the menu after it was added to a session.
+                // Skip it instead of failing the whole snapshot.
+                if (!dishesById.TryGetValue(orderItem.DishId, out var dish))
+                    continue;
+
+                items.Add(new OrderItemResponse
+                {
+                    Dish = DishMapper.ToDishResponse(dish),
+                    Quantity = orderItem.Quantity
+                });
+            }
+
+            decimal total = items.Sum(i => i.Quantity * i.Dish.Price);
+            var type = guestSession.IsOwnerSession ? ParticipantType.Owner : ParticipantType.Guest;
+            var participant = new Participant(guestSession.Id, type, guestSession.GuestName, items, total, guestSession.IsSubmitted);
+            participants.Add(participant);
+        }
+
+        return new GetAllSessionsResponse(participants, participants.Sum(p => p.Total));
     }
 
     private async Task<int> GetCurrentParticipantCountAsync(string groupReservationId)
