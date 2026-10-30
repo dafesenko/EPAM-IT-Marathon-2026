@@ -92,3 +92,20 @@
   justify-content: space-between;
   font-weight: 600;
 }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.remove {
+  padding: 0;
+  border: none;
+  background: none;
+  color: color.$neutral-900;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}

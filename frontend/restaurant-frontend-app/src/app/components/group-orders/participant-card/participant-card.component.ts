@@ -1,5 +1,5 @@
 import { CurrencyPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { Participant } from '@app/models/group-orders/participant.model';
 
 @Component({
@@ -14,6 +14,9 @@ export class ParticipantCardComponent {
   readonly participant = input.required<Participant>();
   // картка власного кошика Owner (рівень 2)
   readonly isMe = input(false);
+  // бонус: кнопка «Remove Guest» — лише для гостей в стані Open
+  readonly canRemove = input(false);
+  readonly removeClick = output<Participant>();
 
   // рахується саме, коли змінюється participant
   readonly title = computed(() => {

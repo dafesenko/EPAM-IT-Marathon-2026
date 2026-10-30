@@ -30,6 +30,15 @@
         </header>
       }
 
+      <div class="sync">
+        @if (refreshFailed()) {
+          <span class="sync-error">Couldn’t refresh. Showing data from {{ lastUpdated() | date: 'HH:mm:ss' }}</span>
+        } @else {
+          <span>Updated at {{ lastUpdated() | date: 'HH:mm:ss' }}</span>
+        }
+        <button type="button" class="btn secondary small" [disabled]="refreshing()" (click)="refreshNow()">Refresh</button>
+      </div>
+
       @if (notSubmittedCount() > 0) {
         <p class="warning">{{ warningText() }}</p>
       }
@@ -37,7 +46,12 @@
       <ul class="participants">
         @for (person of participants(); track person.id) {
           <li>
-            <app-participant-card [participant]="person" [isMe]="person.id === ownerSessionId()" />
+            <app-participant-card
+              [participant]="person"
+              [isMe]="person.id === ownerSessionId()"
+              [canRemove]="isRemovable(person)"
+              (removeClick)="askRemove($event)"
+            />
           </li>
         }
       </ul>
@@ -80,6 +94,19 @@
         <button type="button" class="btn primary" [disabled]="submitting()" (click)="confirmSubmit()">
           {{ submitting() ? 'Submitting…' : 'Submit' }}
         </button>
+      </div>
+    </app-modal>
+  }
+
+  @if (guestToRemove(); as guest) {
+    <app-modal title="Remove Guest" (closed)="cancelRemove()">
+      <p>
+        Are you sure you want to remove <strong>{{ guest.name }}</strong> and their pre-order from this reservation?
+        This action cannot be undone.
+      </p>
+      <div modal-actions class="actions">
+        <button type="button" class="btn link" (click)="cancelRemove()">Cancel</button>
+        <button type="button" class="btn danger" [disabled]="removing()" (click)="confirmRemove()">Remove Guest</button>
       </div>
     </app-modal>
   }

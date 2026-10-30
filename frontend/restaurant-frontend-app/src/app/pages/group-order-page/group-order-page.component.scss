@@ -138,6 +138,20 @@
     background: color.$neutral-0;
     color: color.$neutral-900;
   }
+
+  &.danger {
+    border: 1px solid color.$red-400;
+    background: color.$neutral-0;
+    color: color.$red-400;
+  }
+
+  &.link {
+    padding: 12px 8px;
+    border: none;
+    background: none;
+    color: color.$neutral-900;
+    text-decoration: underline;
+  }
 }
 
 .submit {
@@ -161,4 +175,23 @@
 .grand-total-value {
   color: color.$green-600;
   font-weight: 600;
+}
+
+.sync {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: color.$neutral-600;
+}
+
+.sync-error {
+  color: color.$red-400;
+}
+
+.btn.small {
+  padding: 6px 12px;
+  font-size: 14px;
 }

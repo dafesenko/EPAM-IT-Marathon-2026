@@ -3,10 +3,11 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { forkJoin, switchMap } from 'rxjs';
+import { catchError, EMPTY, exhaustMap, filter, finalize, forkJoin, interval, switchMap, tap } from 'rxjs';
 import { ParticipantCardComponent } from '@app/components/group-orders/participant-card/participant-card.component';
+import { GroupSessionsResponse } from '@app/models/group-orders/group-sessions-response.model';
+import { GroupStatusResponse, GroupReservationStatus } from '@app/models/group-orders/group-status.model';
 import { Participant } from '@app/models/group-orders/participant.model';
-import { GroupReservationStatus } from '@app/models/group-orders/group-status.model';
 import { GuestInvite } from '@app/models/reservations/guest-invite.model';
 import { GroupOrdersService } from '@app/services/group-orders/group-orders.service';
 import { ToastService } from '@app/services/toast/toast.service';
@@ -14,6 +15,8 @@ import { ModalComponent } from '@app/shared/custom-components/modal/modal.compon
 import { consolidatePreOrder } from '@app/shared/helpers/consolidate-pre-order';
 
 type LoadState = 'loading' | 'ready' | 'notFound' | 'error';
+
+const SYNC_INTERVAL_MS = 15_000;
 
 @Component({
   selector: 'app-group-order-page',
@@ -38,6 +41,13 @@ export class GroupOrderPageComponent implements OnInit {
   readonly submitting = signal(false);
   readonly dialogOpen = signal(false);
 
+  readonly lastUpdated = signal<Date | null>(null);
+  readonly refreshing = signal(false);
+  readonly refreshFailed = signal(false);
+
+  readonly guestToRemove = signal<Participant | null>(null);
+  readonly removing = signal(false);
+
   readonly groupId = computed(() => this.invite()?.GroupReservationId ?? '');
   readonly guestCount = computed(() => this.participants().length);
   readonly consolidated = computed(() => consolidatePreOrder(this.participants()));
@@ -56,6 +66,16 @@ export class GroupOrderPageComponent implements OnInit {
     () => this.status() === 'Open' && !this.submitting() && this.consolidated().items.length > 0,
   );
 
+  // Фонове оновлення: поки група Open, кожні 15 с. exhaustMap — новий запит не стартує, поки попередній не відповів.
+  // Таймер один на життя сторінки: Try again його не дублює, вихід зі сторінки зупиняє (takeUntilDestroyed).
+  private readonly syncTimer = interval(SYNC_INTERVAL_MS)
+    .pipe(
+      filter(() => this.loadState() === 'ready' && this.status() === 'Open'),
+      exhaustMap(() => this.refresh$()),
+      takeUntilDestroyed(this.destroyRef),
+    )
+    .subscribe();
+
   ngOnInit(): void {
     this.load();
   }
@@ -70,19 +90,57 @@ export class GroupOrderPageComponent implements OnInit {
           return forkJoin({
             sessions: this.service.getSessions$(invite.GroupReservationId),
             ownerId: this.service.getOwnerSessionId$(this.reservationId),
-            status: this.service.getStatus$(invite.GroupReservationId),
+            statusResponse: this.service.getStatus$(invite.GroupReservationId),
           });
         }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: ({ sessions, ownerId, status }) => {
-          this.participants.set(sessions.participants);
+        next: ({ sessions, ownerId, statusResponse }) => {
           this.ownerSessionId.set(ownerId);
-          this.status.set(status.status);
+          this.applyData(sessions, statusResponse);
           this.loadState.set('ready');
         },
         error: (error: HttpErrorResponse) => this.loadState.set(error.status === 404 ? 'notFound' : 'error'),
+      });
+  }
+
+  refreshNow(): void {
+    if (this.refreshing() || this.loadState() !== 'ready') return;
+    this.refresh$().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+  }
+
+  isRemovable(person: Participant): boolean {
+    return person.type === 'Guest' && this.status() === 'Open';
+  }
+
+  askRemove(person: Participant): void {
+    this.guestToRemove.set(person);
+  }
+
+  cancelRemove(): void {
+    if (!this.removing()) this.guestToRemove.set(null);
+  }
+
+  confirmRemove(): void {
+    const guest = this.guestToRemove();
+    if (!guest || this.removing()) return;
+
+    this.removing.set(true);
+    this.service
+      .removeSession$(this.groupId(), guest.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => {
+          this.participants.set(response.participants);
+          this.removing.set(false);
+          this.guestToRemove.set(null);
+        },
+        // помилку покаже tokenInterceptor; список лишається як був
+        error: () => {
+          this.removing.set(false);
+          this.guestToRemove.set(null);
+        },
       });
   }
 
@@ -114,5 +172,29 @@ export class GroupOrderPageComponent implements OnInit {
           this.dialogOpen.set(false);
         },
       });
+  }
+
+  private refresh$() {
+    const groupId = this.groupId();
+    this.refreshing.set(true);
+    return forkJoin({
+      sessions: this.service.getSessions$(groupId, { silent: true }),
+      statusResponse: this.service.getStatus$(groupId, { silent: true }),
+    }).pipe(
+      tap(({ sessions, statusResponse }) => this.applyData(sessions, statusResponse)),
+      // фонова помилка: показуємо останні дані й позначку, без toast
+      catchError(() => {
+        this.refreshFailed.set(true);
+        return EMPTY;
+      }),
+      finalize(() => this.refreshing.set(false)),
+    );
+  }
+
+  private applyData(sessions: GroupSessionsResponse, statusResponse: GroupStatusResponse): void {
+    this.participants.set(sessions.participants);
+    this.status.set(statusResponse.status);
+    this.lastUpdated.set(new Date());
+    this.refreshFailed.set(false);
   }
 }
