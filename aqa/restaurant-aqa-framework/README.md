@@ -146,3 +146,7 @@ dotnet run --no-build -- --treenode-filter "/*/*/*/*[Category=level-3]"
 **Decision the homework leaves open:** a guest who has already confirmed their cart can be removed. The removal takes that cart out of the list and out of the submitted order, and the scenario "A guest who had confirmed their order is removed together with that order" checks it.
 
 The backend's `docs/backend-analysis.md` lists two of these checks as open. Both are fixed now: the owner's session cannot be removed, and the list returned right after a removal no longer contains the removed guest.
+
+### The owner's page, level 3 (removing a guest)
+
+`Features/GroupPreOrderRemoveGuestPage.feature` (`@ui`): the owner presses a guest's "Remove Guest" button, confirms, and the guest's card disappears. Backing out of the confirmation keeps the guest.

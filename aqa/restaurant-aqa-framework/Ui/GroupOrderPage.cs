@@ -23,6 +23,13 @@ public sealed class GroupOrderPage(IPage page) : BasePage(page)
 
     public ILocator DialogCancelButton => Page.GetByRole(AriaRole.Button, new() { Name = "Cancel", Exact = true });
 
+    /// <summary>The "Remove Guest" button on a guest's card. Its accessible name is the guest's name, so it is found by that.</summary>
+    public ILocator RemoveGuestButton(string guestName) =>
+        Page.GetByRole(AriaRole.Button, new() { Name = $"Remove {guestName}", Exact = true });
+
+    /// <summary>The removal dialog's confirm button, also named "Remove Guest".</summary>
+    public ILocator DialogRemoveGuestButton => Page.GetByRole(AriaRole.Button, new() { Name = "Remove Guest", Exact = true });
+
     /// <summary>The status badge: "Collecting pre-orders" while the group is open, "Sent to Restaurant" once submitted.</summary>
     public ILocator StatusBadge => Page.Locator(".badge");
 }
