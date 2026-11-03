@@ -112,3 +112,17 @@ It needs `LOCATION_WAITER_USERNAME` and `LOCATION_WAITER_PASSWORD` in `.env`: a 
 **Known defect:** the owner cannot open the page of a group whose every seat is taken. The page first reads the group's invitation (`GET /guest/invites/{token}`), and the backend refuses that read once the guest limit is reached, so the page shows an error instead of the cards. The scenario "The owner sees the cards of a group whose every seat is taken" is tagged `@known-defect` and stays red until this is fixed. The other UI scenarios book one seat more than the guests they invite, so they are not affected.
 
 **Not covered yet:** the page shows a "Grand Total" that counts only submitted carts. The homework asks for the total over all participants at this level; that total is checked through the API scenarios, not in the UI.
+
+## Group pre-order, level 2 (submitting the pre-order)
+
+`Features/GroupPreOrderSubmit.feature` (`@api @level-2 @sequential`). The owner starts their own pre-order (a pre-order needs at least one dish), the guests confirm their carts, and the owner submits the group. Checked: only confirmed carts are passed on, the same dish from several guests is merged, the group becomes `Submitted`, the order becomes `SubmittedByCustomer`, and the waiter sees the owner's dishes plus the confirmed guest dishes. Refusals: no confirmed cart, no pre-order, group does not exist, not the owner, and a second submission.
+
+Run only this level:
+
+```bash
+dotnet run --no-build -- --treenode-filter "/*/*/*/*[Category=level-2]"
+```
+
+**Known defect:** the owner cannot add a dish to their own part of the group. The owner's session has no token, and the backend answers the attempt with a 500 instead of adding the dish. Scenario "The owner adds a dish to their own group cart" is `@known-defect`.
+
+**Not testable through the API:** the homework says the submission must be refused when the confirmed carts contain no dishes. The backend does not allow a guest to confirm an empty cart, so that state cannot be reached, and no scenario checks it.

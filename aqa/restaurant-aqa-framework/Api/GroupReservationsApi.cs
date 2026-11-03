@@ -1,4 +1,5 @@
 using Microsoft.Playwright;
+using Restaurant_Aqa_Framework.Api.Dtos.GroupReservations;
 
 namespace Restaurant_Aqa_Framework.Api;
 
@@ -24,6 +25,19 @@ public sealed class GroupReservationsApi(IAPIRequestContext api) : ApiClientBase
     public Task<IAPIResponse> GetGroupSessionsAsync(string groupReservationId, string? bearerToken = null) =>
         GetAsync(Url($"/guest/groups/{groupReservationId}/sessions"), new APIRequestContextOptions
         {
+            Headers = Headers(bearerToken),
+        });
+
+    public Task<IAPIResponse> GetGroupStatusAsync(string groupReservationId, string? bearerToken = null) =>
+        GetAsync(Url($"/guest/groups/{groupReservationId}/status"), new APIRequestContextOptions
+        {
+            Headers = Headers(bearerToken),
+        });
+
+    public Task<IAPIResponse> SubmitGroupPreOrderAsync(string groupReservationId, string reservationId, string bearerToken) =>
+        Api.PostAsync(Url($"/group-reservations/{groupReservationId}/submit"), new APIRequestContextOptions
+        {
+            DataString = Serialize(new SubmitGroupPreOrderRequest(reservationId)),
             Headers = Headers(bearerToken),
         });
 }
