@@ -85,3 +85,22 @@ To start the Playwright code generator open Powershell in the framework director
 bin/Debug/net10.0/playwright.ps1 codegen "<your UI_URL or the public site you test>"
 ```
 Build first so `playwright.ps1` exists. The URL is optional.
+
+## Group pre-order, level 1 (homework "Напрям 1")
+
+Approach: the same BDD + Screenplay setup as the rest of the suite. The feature is `Features/GroupPreOrder.feature`, tagged `@api` (no browser, the level-1 checks are about what the owner gets back from the API). The UI scenarios for the same level come later.
+
+Run only this level:
+
+```bash
+dotnet run --no-build -- --treenode-filter "/*/*/*/*[Category=level-1]"
+```
+
+It needs `LOCATION_WAITER_USERNAME` and `LOCATION_WAITER_PASSWORD` in `.env`: a Waiter account that is put on each test location, since a booking is refused on a location without a waiter. A waiter serves one location at a time, so the feature is tagged `@sequential` and its scenarios do not run in parallel.
+
+### Behaviour the homework leaves open
+
+- **The owner is always a participant.** The owner's own session exists from the moment the table is booked, so a group that nobody has joined lists only the owner, named `Owner`, with a total of 0. The homework text expects `participants: []` for an empty group; the backend does not produce that, and the suite follows the backend.
+- **A guest is asked to sign in, not refused.** A guest holds a session token rather than a customer's Cognito token, so the request is unauthenticated (401). A signed-in customer who is not the owner, and the waiter, are refused (403).
+- **Totals include unconfirmed carts.** The participants list shows every guest's cart total, with `confirmed` as a separate flag. The group total is the sum of all participants, as in the example in `docs/ApiRoutes.md`.
+- **A group that does not exist** answers 404, which the suite reads as "could not be found".

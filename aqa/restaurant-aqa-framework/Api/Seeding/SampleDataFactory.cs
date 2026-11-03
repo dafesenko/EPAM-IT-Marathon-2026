@@ -54,12 +54,12 @@ public static class SampleDataFactory
             AverageOccupancy: Faker.Random.Int(0, 100).ToString(CultureInfo.InvariantCulture));
 
     public static CreateDishRequest CreateDishRequest(
-        IReadOnlyList<string> locationIds, DishType dishType = DishType.MainCourse) =>
+        IReadOnlyList<string> locationIds, DishType dishType = DishType.MainCourse, decimal? price = null) =>
         new(
             Name: Prefix + Faker.Commerce.ProductName(),
             Description: Faker.Lorem.Sentence(),
             DishType: dishType,
-            Price: Faker.Random.Decimal(5, 50),
+            Price: price ?? Faker.Random.Decimal(5, 50),
             Weight: $"{Faker.Random.Int(100, 500)}g",
             Calories: Faker.Random.Int(100, 900).ToString(CultureInfo.InvariantCulture),
             Proteins: Faker.Random.Int(1, 50).ToString(CultureInfo.InvariantCulture),

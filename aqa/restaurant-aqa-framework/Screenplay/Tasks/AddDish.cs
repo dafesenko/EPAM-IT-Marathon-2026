@@ -7,8 +7,8 @@ using Restaurant_Aqa_Framework.Screenplay.Questions;
 namespace Restaurant_Aqa_Framework.Screenplay.Tasks;
 
 /// <summary>Adds a sample dish of the given category to a location: the one named, or else the one this scenario
-/// set up most recently.</summary>
-public sealed class AddDish(DishType type = DishType.MainCourse, string? toLocation = null) : ITask
+/// set up most recently. A price can be given when the scenario needs to know what the dish costs.</summary>
+public sealed class AddDish(DishType type = DishType.MainCourse, string? toLocation = null, decimal? price = null) : ITask
 {
     public async Task PerformAsAsync(Actor actor)
     {
@@ -16,7 +16,7 @@ public sealed class AddDish(DishType type = DishType.MainCourse, string? toLocat
         var api = new DishesApi(actor.UsingTheApi());
         var response = actor.TheLastResponse();
 
-        await response.CaptureAsync(await api.CreateDishAsync(SampleDataFactory.CreateDishRequest([location.Id], type)));
+        await response.CaptureAsync(await api.CreateDishAsync(SampleDataFactory.CreateDishRequest([location.Id], type, price)));
         if (!response.Succeeded)
             throw new InvalidOperationException($"Adding the dish failed with {response.Status}: {response.Body}");
 
