@@ -132,3 +132,17 @@ dotnet run --no-build -- --treenode-filter "/*/*/*/*[Category=level-2]"
 `Features/GroupPreOrderSubmitPage.feature` (`@ui`): the owner opens the group page and presses "Submit Pre-Order", then confirms in the dialog. Checked: the badge changes to "Sent to Restaurant" and the button is gone; the button is disabled while no guest has confirmed a cart; cancelling the dialog sends nothing.
 
 The UI scenarios book one seat more than the guests they invite, for the same reason as level 1: the owner's page cannot be opened for a group whose every seat is taken (see the known defect above).
+
+## Group pre-order, level 3 (removing a guest)
+
+`Features/GroupPreOrderRemoveGuest.feature` (`@api @level-3 @sequential`). The owner removes a guest from the group: the list and the totals change, and the removed guest's dishes do not reach the order the waiter sees. Refusals: a guest of another group (400), a guest that does not exist (404), the owner's own session (400), another customer (403), and a guest trying to remove another guest (401).
+
+Run only this level:
+
+```bash
+dotnet run --no-build -- --treenode-filter "/*/*/*/*[Category=level-3]"
+```
+
+**Decision the homework leaves open:** a guest who has already confirmed their cart can be removed. The removal takes that cart out of the list and out of the submitted order, and the scenario "A guest who had confirmed their order is removed together with that order" checks it.
+
+The backend's `docs/backend-analysis.md` lists two of these checks as open. Both are fixed now: the owner's session cannot be removed, and the list returned right after a removal no longer contains the removed guest.

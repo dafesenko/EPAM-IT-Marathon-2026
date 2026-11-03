@@ -34,6 +34,13 @@ public sealed class GroupReservationsApi(IAPIRequestContext api) : ApiClientBase
             Headers = Headers(bearerToken),
         });
 
+    /// <summary>The owner removes a guest session from the group. Answers with the participants list after the removal.</summary>
+    public Task<IAPIResponse> RemoveGuestSessionAsync(string groupReservationId, string guestSessionId, string? bearerToken) =>
+        DeleteAsync(Url($"/guest/groups/{groupReservationId}/sessions/{guestSessionId}"), new APIRequestContextOptions
+        {
+            Headers = Headers(bearerToken),
+        });
+
     public Task<IAPIResponse> SubmitGroupPreOrderAsync(string groupReservationId, string reservationId, string bearerToken) =>
         Api.PostAsync(Url($"/group-reservations/{groupReservationId}/submit"), new APIRequestContextOptions
         {
