@@ -126,3 +126,9 @@ dotnet run --no-build -- --treenode-filter "/*/*/*/*[Category=level-2]"
 **Known defect:** the owner cannot add a dish to their own part of the group. The owner's session has no token, and the backend answers the attempt with a 500 instead of adding the dish. Scenario "The owner adds a dish to their own group cart" is `@known-defect`.
 
 **Not testable through the API:** the homework says the submission must be refused when the confirmed carts contain no dishes. The backend does not allow a guest to confirm an empty cart, so that state cannot be reached, and no scenario checks it.
+
+### The owner's page, level 2 (submitting from the page)
+
+`Features/GroupPreOrderSubmitPage.feature` (`@ui`): the owner opens the group page and presses "Submit Pre-Order", then confirms in the dialog. Checked: the badge changes to "Sent to Restaurant" and the button is gone; the button is disabled while no guest has confirmed a cart; cancelling the dialog sends nothing.
+
+The UI scenarios book one seat more than the guests they invite, for the same reason as level 1: the owner's page cannot be opened for a group whose every seat is taken (see the known defect above).
