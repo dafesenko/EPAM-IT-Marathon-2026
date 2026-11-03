@@ -24,6 +24,7 @@ public sealed class BecomeCustomer(string name) : ITask
             throw new InvalidOperationException(
                 $"Signing in {name} failed with {signIn.Status}: {await signIn.ReadErrorMessageAsync()}");
 
+        actor.Remember(name, new CustomerAccount(email, password));
         actor.Remember(name, new Visitor(name, (await signIn.ReadAsAsync<SignInResponse>()).IdToken));
     }
 }

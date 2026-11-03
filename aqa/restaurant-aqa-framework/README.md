@@ -104,3 +104,11 @@ It needs `LOCATION_WAITER_USERNAME` and `LOCATION_WAITER_PASSWORD` in `.env`: a 
 - **A guest is asked to sign in, not refused.** A guest holds a session token rather than a customer's Cognito token, so the request is unauthenticated (401). A signed-in customer who is not the owner, and the waiter, are refused (403).
 - **Totals include unconfirmed carts.** The participants list shows every guest's cart total, with `confirmed` as a separate flag. The group total is the sum of all participants, as in the example in `docs/ApiRoutes.md`.
 - **A group that does not exist** answers 404, which the suite reads as "could not be found".
+
+### The owner's page, level 1 (UI)
+
+`Features/GroupPreOrderOwnerPage.feature` (`@ui`) signs the owner in through the login form, opens `/reservations/{id}/group-order`, and checks the participant cards: whose card it is, whether the order is confirmed, and the subtotal. The page titles the owner's card "My Pre-Order" and each guest's card "Guest: <name>". The cards are matched by title, because the page does not promise an order.
+
+**Known defect:** the owner cannot open the page of a group whose every seat is taken. The page first reads the group's invitation (`GET /guest/invites/{token}`), and the backend refuses that read once the guest limit is reached, so the page shows an error instead of the cards. The scenario "The owner sees the cards of a group whose every seat is taken" is tagged `@known-defect` and stays red until this is fixed. The other UI scenarios book one seat more than the guests they invite, so they are not affected.
+
+**Not covered yet:** the page shows a "Grand Total" that counts only submitted carts. The homework asks for the total over all participants at this level; that total is checked through the API scenarios, not in the UI.

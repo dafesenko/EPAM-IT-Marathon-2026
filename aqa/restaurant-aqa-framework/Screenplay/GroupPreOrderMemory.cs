@@ -1,5 +1,8 @@
 namespace Restaurant_Aqa_Framework.Screenplay;
 
+/// <summary>A customer's login details, so a UI scenario can sign them in through the login form.</summary>
+public sealed record CustomerAccount(string Email, string Password);
+
 /// <summary>A signed-in person and the bearer token their calls carry: a customer's Cognito id token, or a guest's
 /// session token. Remembered by the person's name.</summary>
 public sealed record Visitor(string Name, string Token);
